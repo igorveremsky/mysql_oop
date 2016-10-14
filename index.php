@@ -4,137 +4,33 @@ define('DB_HOST', 'db_host');
 define('DB_USER', 'db_user');
 define('DB_PASS', 'db_pass');
 
-class User
-{
-    private $_first_name;
-    private $_last_name;
-    private $_age;
-    private $_birth_date;
+include_once('CUser.php');
+include_once('CUserDb.php');
 
-    function __construct($_first_name, $_last_name, $_age, $_birth_date)
-    {
-        $this->_first_name = $_first_name;
-        $this->_last_name = $_last_name;
-        $this->_age = $_age;
-        $this->_birth_date = $_birth_date;
-    }
-
-    /**
-     * @return mixed
-     */
-    public function getAge()
-    {
-        return $this->_age;
-    }
-
-    /**
-     * @return mixed
-     */
-    public function getBirthDate()
-    {
-        return $this->_birth_date;
-    }
-
-    /**
-     * @return mixed
-     */
-    public function getFirstName()
-    {
-        return $this->_first_name;
-    }
-
-    /**
-     * @return mixed
-     */
-    public function getLastName()
-    {
-        return $this->_last_name;
-    }
-}
-class UserDb
-{
-    private $dbh;
-
-    public function dbConnect($db_name, $db_host, $db_user, $db_pass)
-    {
-        $dsn = 'mysql:dbname='.$db_name.';host='.$db_host.';charset=UTF8';
-        $user = $db_user;
-        $password = $db_pass;
-
-        try {
-            $this->dbh = new PDO($dsn, $user, $password);
-            $this->dbh->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_WARNING);
-        } catch (PDOException $e) {
-            return 'Подключение не удалось: ' . $e->getMessage();
-        }
-
-        return 'Подключение к базе данных успешное';
-    }
-    public function dbCreate()
-    {
-        try {
-            $sql ="CREATE table users (
-                     id INT(11) AUTO_INCREMENT PRIMARY KEY,
-                     first_name VARCHAR(255),
-                     last_name VARCHAR(255),
-                     age INT(3) UNSIGNED NOT NULL,
-                     birth_date VARCHAR(255));" ;
-            $return = ($this->dbh->query($sql)) ? 'Создали таблицу users' : $this->dbh->errorInfo();
-        } catch(PDOException $e) {
-            return 'Не удалось создать таблицу: ' . $e->getMessage();
-        }
-
-        return $return;
-    }
-    public function dbSelect()
-    {
-        $users = array();
-
-        $dbArray = $this->dbh->query('SELECT * FROM users')->fetchAll(PDO::FETCH_ASSOC);
-
-        foreach($dbArray as $rows)
-        {
-            $users[] = new User($rows['first_name'], $rows['last_name'], $rows['age'], $rows['birth_date']);
-        }
-        return $users;
-    }
-    public function dbInsert(User $user)
-    {
-        $user_first_name = $user->getFirstName();
-        $user_last_name = $user->getLastName();
-        $user_age = $user->getAge();
-        $user_birth_date = $user->getBirthDate();
-
-        $stmt = $this->dbh->prepare("INSERT INTO users (first_name, last_name, age, birth_date) VALUES (:user_first_name, :user_last_name, :user_age, :user_birth_date)");
-        $stmt->bindParam(':user_first_name', $user_first_name);
-        $stmt->bindParam(':user_last_name', $user_last_name);
-        $stmt->bindParam(':user_age', $user_age);
-        $stmt->bindParam(':user_birth_date', $user_birth_date);
-
-        $return = ($stmt->execute()) ? 'Пользователь успешно добавлен в базу данных' : $this->dbh->errorInfo();
-
-        return $return;
-    }
-}
+$response = '';
 
 if (!empty($_POST)) {
-    $user_db = new UserDb();
+    if (!empty($_POST['first_name']) && !empty($_POST['last_name']) && !empty($_POST['age']) && !empty($_POST['birth_date'])) {
+        $user_db = new UserDb();
 
-    $user_first_name = $_POST['first_name'];
-    $user_last_name = $_POST['last_name'];
-    $user_age = $_POST['age'];
-    $user_birth_date = $_POST['birth_date'];
+        $user_first_name = htmlspecialchars($_POST['first_name']);
+        $user_last_name = htmlspecialchars($_POST['last_name']);
+        $user_age = htmlspecialchars($_POST['age']);
+        $user_birth_date = htmlspecialchars($_POST['birth_date']);
 
-    $user = new User($user_first_name, $user_last_name, $user_age, $user_birth_date);
+        $user = new User($user_first_name, $user_last_name, $user_age, $user_birth_date);
 
-    echo '<pre>';
-    var_dump($user_db->dbConnect(constant('DB_NAME'), constant('DB_HOST'), constant('DB_USER'), constant('DB_PASS')));
-    var_dump($_POST);
-    //var_dump($user_db->dbCreate());
-    var_dump($user_db->dbInsert($user));
-    var_dump($user_db->dbSelect());
+        //echo '<pre>';
+        $user_db->dbConnect(constant('DB_NAME'), constant('DB_HOST'), constant('DB_USER'), constant('DB_PASS'));
 
-    die();
+        //var_dump($user_db->dbCreate());
+        //var_dump($user_db->dbInsert($user));
+        //var_dump($user_db->dbSelect());
+
+        $response = $user_db->dbInsert($user);
+    } else {
+        $response = 'Вы не заполнили обязательные поля';
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -303,21 +199,27 @@ if (!empty($_POST)) {
             box-shadow: 0px 1px 1px #000,0px 1px 0px rgba(255,255,255,.3) inset;
             text-shadow: 0 1px 1px #000;
             outline: none;
+            cursor: pointer;
         }
 
     </style>
 </head>
 <body id="home">
+<?php
+if (!empty($response)) {
+    echo '<p>'.$response.'</p>';
+}
+?>
 <div class="rain">
     <div class="border start">
         <form method="post" action="index.php">
-            <label for="first_name">First Name</label>
+            <label for="first_name">First Name*</label>
             <input name="first_name" type="text" placeholder="First Name"/>
-            <label for="last_name">Password</label>
+            <label for="last_name">Last Name*</label>
             <input name="last_name" type="text" placeholder="Last Name"/>
-            <label for="age">Age</label>
+            <label for="age">Age*</label>
             <input name="age" type="number"/>
-            <label for="birth_date">Birth Date</label>
+            <label for="birth_date">Birth Date*</label>
             <input name="birth_date" type="date"/>
             <input type="submit" value="SIGN UP"/>
         </form>
